@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>CRS形式のデータを用いたガウス・ザイデル法</title>
+    </head>
+    <body>
+        <form name="myform">
+            <input type="file" onchange="readFile(this)" />
+        </form>
+        <div id="TEXT"></div>
+    </body>
+
+    <script type="text/javascript">
+        // CRS形式のデータを用いたガウス・ザイデル法（3EI No.21 福嶋孝太）
+        let text = ""; // 画面出力用変数
+        const LOOP = 1e6; // 時間測定用繰り返し回数
+        const ERR = 1e-10; // 許容絶対誤差
+        const EPS = 1e-13; // 収束したとみなす値
+
+        function printSolution(x, n) {
+            // 解の出力関数
+            for (let i = 0; i < n; i++) {
+                text += x[i] + "<br>";
+            }
+        }
+
+        function Make_CRS(a, n, val, col, ptr, b) {
+            // CRS形式のデータ作成
+            ptr[0] = 0;
+            for (let i = 0; i < n; i++) {
+                let sum = 0;
+                for (let j = 0; j < n; j++) {
+                    if (Math.abs(a[i][j]) > ERR) {
+                        val.push(a[i][j]);
+                        col.push(j);
+                        if (i != j) {
+                            sum += Math.abs(a[i][j]);
+                        }
+                    }
+                }
+                if (Math.abs(a[i][i]) <= sum) {
+                    text += "対角優位行列ではありません<br>";
+                    return 1;
+                }
+                ptr[i + 1] = col.length;
+                b[i] = a[i][n];
+            }
+            ptr[n] = col.length;
+            return 0;
+        }
+
+        function readFile(input) {
+            // mainにあたる部分
+            let file = input.files[0];
+            let reader = new FileReader();
+            reader.readAsText(file); // ファイルの読み込み
+            reader.onload = function () {
+                // ファイル読み込みが終わったら以下の処理を実行
+                let line = reader.result.split("\n"); // ファイル全体を改行記号で区切る
+                let n = parseInt(line.shift()); // 未知変数の数を取り出して、最初の行を削除
+                let a = new Array(n); // 未知変数分だけ行を用意
+                line.forEach(function (item, index) {
+                    // 各行に対して以下の処理を実行
+                    let col = item.split(" "); // １行をスペースで区切って列データ配列を作成
+                    a[index] = col.map(function (x) {
+                        return parseFloat(x);
+                    }); // 文字から数値に変換
+                });
+
+                let val = [];
+                let col = [];
+                let ptr = new Array(n + 1);
+                let b = new Array(n); // bベクトルは別に用意
+                // CRS形式のデータとbを作成する処理
+                if (Make_CRS(a, n, val, col, ptr, b) == 1) {
+                    document.getElementById("TEXT").innerHTML = text;
+                    return;
+                }
+
+                let x = new Array(n); // 収束中のxのための配列
+
+                let pastTime = 0;
+                for (let loop = 0; loop < LOOP; loop++) {
+                    let startTime = performance.now(); // 処理開始時刻
+
+                    // ここにガウス・ザイデル法の処理を書く
+                    for (let i = 0; i < n; i++) {
+                        x[i] = 0;
+                    }
+                    let Nk = 0;
+                    let aii;
+                    let xi;
+                    do {
+                        Nk = 0;
+                        for (let i = 0; i < n; i++) {
+                            xi = b[i];
+                            for (let j = ptr[i]; j < ptr[i + 1]; j++) {
+                                if (col[j] == i) {
+                                    aii = val[j];
+                                } else {
+                                    xi -= val[j] * x[col[j]];
+                                }
+                            }
+                            xi /= aii;
+                            Nk += Math.abs(x[i] - xi);
+                            x[i] = xi;
+                        }
+                    } while (Nk > EPS);
+                    pastTime += performance.now() - startTime; // 処理終了時刻
+                }
+
+                text += "トータル処理時間" + pastTime; // 処理時間出力
+                text += "ms<br>";
+                text += "１回あたりの処理時間" + pastTime / LOOP; // 処理時間出力
+                text += "ms<br>";
+                printSolution(x, n);
+                text += "提出：福嶋孝太<br>"; // ★自分の名前を入れること
+
+                document.getElementById("TEXT").innerHTML = text;
+            };
+        }
+    </script>
+</html>

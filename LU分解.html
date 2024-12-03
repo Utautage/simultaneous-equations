@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>LU分解</title>
+    </head>
+    <body>
+        <form name="myform">
+            <input type="file" onchange="readFile(this)" />
+        </form>
+        <div id="TEXT"></div>
+    </body>
+
+    <script type="text/javascript">
+        // LU分解（3EI No.21 福嶋孝太）
+        let text = ""; // 画面出力用変数
+        const LOOP = 4e6; // 時間測定用繰り返し回数
+        const ERR = 1e-10; // 許容絶対誤差
+
+        function printMatrix(a, n) {
+            // 係数行列Aの出力関数
+            text += n + "<br>";
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n + 1; j++) {
+                    text += a[i][j] + " ";
+                }
+                text += "<br>";
+            }
+        }
+
+        function printSolution(a, n) {
+            // 定数ベクトルbの出力関数
+            for (let i = 0; i < n; i++) {
+                text += Number(a[i][n]).toExponential(20) + "<br>";
+            }
+        }
+
+        function makeLU(a, mem, n) {
+            // ★ここにLU分解処理を書く
+            for (let k = 0; k < n; k++) {
+                // ★処理０　ピボット選択
+                let maxk = k;
+                for (let i = k + 1; i < n; i++) {
+                    if (Math.abs(a[maxk][k]) < Math.abs(a[i][k])) {
+                        maxk = i;
+                    }
+                }
+
+                // ★処理０’ ピボットが０かどうか
+                if (Math.abs(a[maxk][k]) < ERR) {
+                    return 1;
+                }
+
+                // ★処理０の続き k行とkmax行の入れかえ(memの入れ替え)
+                if (k != maxk) {
+                    for (let j = 0; j < n; j++) {
+                        [a[maxk][j], a[k][j]] = [a[k][j], a[maxk][j]];
+                    }
+                    [mem[maxk], mem[k]] = [mem[k], mem[maxk]];
+                }
+
+                // ★処理１ a[k][k]でk行目を割る
+                for (let j = k + 1; j < n; j++) {
+                    a[k][j] /= a[k][k];
+                }
+
+                // ★処理２　k行目より下のk列目を０にする
+                for (let i = k + 1; i < n; i++) {
+                    for (let j = k + 1; j < n; j++) {
+                        a[i][j] -= a[k][j] * a[i][k];
+                    }
+                }
+            }
+
+            return 0;
+        }
+
+        function solveLU(a, n) {
+            // ★★前進代入
+            for (let k = 0; k < n; k++) {
+                for (let i = 0; i < k; i++) {
+                    a[k][n] -= a[k][i] * a[i][n];
+                }
+                a[k][n] /= a[k][k];
+            }
+            // ★★後退代入
+            for (k = n - 1; k >= 0; k--) {
+                for (j = k + 1; j < n; j++) {
+                    a[k][n] -= a[k][j] * a[j][n];
+                }
+            }
+            return 0;
+        }
+
+        function readFile(input) {
+            // mainにあたる部分（ファイルを選択したら実行される）
+            let file = input.files[0];
+            let reader = new FileReader();
+            reader.readAsText(file); // ファイルの読み込み
+            reader.onload = function () {
+                // ファイル読み込みが終わったら以下の処理を実行
+                let line = reader.result.split("\n"); // ファイル全体を改行記号で区切る
+                let n = parseInt(line.shift()); // 未知変数の数を取り出して、最初の行を削除
+                let a0 = new Array(n); // 未知変数分だけ行を用意
+                line.forEach(function (item, index) {
+                    // 各行に対して以下の処理を実行
+                    let col = item.split(" "); // １行をスペースで区切って列データ配列を作成
+                    a0[index] = col.map(function (x) {
+                        return parseFloat(x);
+                    }); // 文字から数値に変換
+                });
+
+                let a = new Array(n); // 未知変数分だけ行を用意
+                let mem = new Array(n); // 行入れ替え記憶用
+
+                a0.forEach(function (item, index) {
+                    // 行列Aの復帰
+                    a[index] = item.slice();
+                    mem[index] = index; // 行入れ替え記憶配列の初期化
+                });
+
+                let startTime = performance.now(); // 処理開始時刻
+                res = makeLU(a, mem, n); // LU分解
+                let pastTime = performance.now() - startTime; // 処理終了時刻
+
+                if (res != 0) {
+                    text += "連立方程式が不能、または不定です。<br>";
+                    document.getElementById("TEXT").innerHTML = text;
+                    return 0;
+                }
+
+                for (let loop = 0; loop < LOOP; loop++) {
+                    startTime = performance.now(); // 処理開始時刻
+
+                    // ★★右辺の行入れ替え
+                    for (let i = 0; i < n; i++) {
+                        a[i][n] = a0[mem[i]][n];
+                    }
+
+                    solveLU(a, n); // LUを使った前進代入・後退代入
+
+                    pastTime += performance.now() - startTime; // 処理終了時刻
+                }
+
+                text += "トータル処理時間" + pastTime + "ms<br>"; // 処理時間出力
+                text += "１回あたりの処理時間" + pastTime / LOOP + "ms<br>";
+                printSolution(a, n); // 解の画面出力
+                text += "提出：福嶋孝太<br>"; // ★自分の名前を入れること
+
+                document.getElementById("TEXT").innerHTML = text;
+            };
+        }
+    </script>
+</html>
